@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>酷狗签到控制台</title>
+<style>
+  :root{
+    --bg:#0e1116; --card:#171b22; --card2:#1e232c; --line:#2a313c;
+    --text:#e6e9ef; --muted:#8b95a5; --accent:#3b82f6; --accent2:#2563eb;
+    --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text); min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:18px 14px 60px}
+  header{display:flex;align-items:center;gap:10px;margin:6px 0 18px}
+  header .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:grid;place-items:center;font-size:18px}
+  header h1{font-size:18px;margin:0;font-weight:650}
+  header .sub{font-size:12px;color:var(--muted);margin-top:1px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+  .card h2{font-size:13px;margin:0 0 12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase;display:flex;align-items:center;gap:7px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0}
+  .row + .row{border-top:1px dashed var(--line)}
+  .row .k{color:var(--muted);font-size:13px}
+  .row .v{font-weight:600;text-align:right}
+  label.f{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+  input,select,button{font:inherit;color:inherit}
+  input[type=text],input[type=password],input[type=time],input[type=number]{
+    width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;outline:none;transition:border-color .15s;
+  }
+  input:focus{border-color:var(--accent)}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    background:var(--accent);color:#fff;border:none;border-radius:10px;
+    padding:11px 16px;font-weight:600;cursor:pointer;transition:.15s;width:100%;
+  }
+  .btn:hover{background:var(--accent2)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+  .btn.ghost:hover{background:var(--card2)}
+  .btn.sm{padding:8px 12px;font-size:13px;width:auto}
+  .btnrow{display:flex;gap:10px;margin-top:14px}
+  .hint{font-size:12px;color:var(--muted);margin-top:9px;line-height:1.6}
+  .hint a{color:var(--accent);text-decoration:none}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--card2);border:1px solid var(--line)}
+  .badge.ok{color:var(--ok);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.1)}
+  .badge.err{color:var(--err);border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.1)}
+  .badge.run{color:var(--accent);border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.1)}
+  .badge.warn{color:var(--warn);border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.1)}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
+  .pulse{animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .bar{height:8px;border-radius:99px;background:var(--card2);overflow:hidden;margin-top:12px;border:1px solid var(--line)}
+  .bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#8b5cf6);transition:width .4s}
+  .bar.indet > i{width:35%;animation:indet 1.3s linear infinite}
+  @keyframes indet{0%{margin-left:-35%}100%{margin-left:100%}}
+  .switch{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+  .switch input{display:none}
+  .track{width:44px;height:26px;border-radius:99px;background:var(--card2);border:1px solid var(--line);position:relative;transition:.2s;flex:none}
+  .track::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--muted);transition:.2s}
+  .switch input:checked + .track{background:var(--accent);border-color:var(--accent)}
+  .switch input:checked + .track::after{left:20px;background:#fff}
+  .run{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px dashed var(--line);text-decoration:none;color:inherit}
+  .run:first-of-type{border-top:none}
+  .run .no{font-weight:650;min-width:44px;color:var(--muted);font-size:13px}
+  .run .meta{flex:1;min-width:0}
+  .run .meta .t1{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .run .meta .t2{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .avatar{width:24px;height:24px;border-radius:50%;vertical-align:middle}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
+    background:#000d;border:1px solid var(--line);padding:11px 16px;border-radius:11px;font-size:13.5px;max-width:90vw;
+    transition:.25s;z-index:99;backdrop-filter:blur(6px)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.ok{border-color:rgba(34,197,94,.5)}
+  #toast.err{border-color:rgba(239,68,68,.5)}
+  .hidden{display:none !important}
+  .spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  code{background:var(--card2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🎧</div>
+    <div>
+      <h1>酷狗签到控制台</h1>
+      <div class="sub" id="repoSub">zhl20101118 / kgcheckin</div>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn ghost sm hidden" id="logoutBtn">退出</button>
+  </header>
+
+  <!-- 未登录 -->
+  <section class="card" id="authCard">
+    <h2>① 连接仓库</h2>
+    <label class="f">GitHub Token（细粒度 PAT）</label>
+    <input type="password" id="tokenInput" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+    <div class="btnrow">
+      <button class="btn" id="saveTokenBtn">连接</button>
+    </div>
+    <div class="hint">
+      Token 只保存在你本机浏览器（localStorage），不会上传到任何服务器。<br>
+      需要权限：<b>Contents → Read and write</b>、<b>Actions → Read and write</b>，仓库范围只勾选 <code>kgcheckin</code>。<br>
+      在 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">这里创建 Token</a>。
+    </div>
+  </section>
+
+  <!-- 已登录 -->
+  <section id="panel" class="hidden">
+    <div class="card">
+      <h2>当前状态 <span id="whoami" style="margin-left:auto;font-weight:400;text-transform:none;letter-spacing:0"></span></h2>
+      <div class="row"><span class="k">打卡时间</span><span class="v" id="ovTime">—</span></div>
+      <div class="row"><span class="k">随机延迟</span><span class="v" id="ovDelay">—</span></div>
+      <div class="row"><span class="k">预计下次运行</span><span class="v" id="ovNext">—</span></div>
+      <div class="row"><span class="k">cron（UTC）</span><span class="v" id="ovCron" style="font-family:ui-monospace,monospace;font-size:13px">—</span></div>
+    </div>
+
+    <div class="card">
+      <h2>② 一键打卡</h2>
+      <div class="row" style="padding-top:0">
+        <span class="k">立即触发一次签到工作流</span>
+        <span id="checkinBadge"></span>
+      </div>
+      <div class="bar" id="checkinBar"><i></i></div>
+      <div class="hint" id="checkinStep">点下面按钮即可立即运行一次（不用等定时）。</div>
+      <div class="btnrow">
+        <button class="btn" id="runBtn">⚡ 一键打卡</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>③ 打卡时间设置</h2>
+      <label class="f">每天打卡时间（北京时间）</label>
+      <input type="time" id="timeInput" value="00:10">
+      <label class="switch" style="margin-top:16px">
+        <input type="checkbox" id="delayToggle">
+        <span class="track"></span>
+        <span>随机延迟（在该时间后再随机等待一段时间）</span>
+      </label>
+      <div id="delayBox" class="hidden">
+        <label class="f">随机等待上限（分钟）</label>
+        <input type="number" id="delayMin" min="1" max="180" value="60">
+      </div>
+      <div class="hint" id="settingsPreview"></div>
+      <div class="btnrow">
+        <button class="btn" id="saveSettingsBtn">保存设置</button>
+        <button class="btn ghost" id="reloadBtn">刷新</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>最近运行记录 <a href="#" id="actionsLink" target="_blank" rel="noopener" style="margin-left:auto;font-weight:400;text-transform:none;letter-spacing:0;color:var(--accent);text-decoration:none">全部 →</a></h2>
+      <div id="runsList"><div class="hint">加载中…</div></div>
+    </div>
+  </section>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+const OWNER = "zhl20101118";
+const REPO  = "kgcheckin";
+const BRANCH = "main";
+const WF_PATH = ".github/workflows/签到.yml";
+const WF_NAME = "签到.yml";
+const API = "https://api.github.com";
+const TOKEN_KEY = "kg_checkin_token";
+
+const $ = (id) => document.getElementById(id);
+const el = {
+  authCard: $("authCard"), panel: $("panel"), tokenInput: $("tokenInput"),
+  saveTokenBtn: $("saveTokenBtn"), logoutBtn: $("logoutBtn"), whoami: $("whoami"),
+  ovTime: $("ovTime"), ovDelay: $("ovDelay"), ovNext: $("ovNext"), ovCron: $("ovCron"),
+  runBtn: $("runBtn"), checkinBadge: $("checkinBadge"), checkinBar: $("checkinBar"),
+  checkinStep: $("checkinStep"), timeInput: $("timeInput"), delayToggle: $("delayToggle"),
+  delayBox: $("delayBox"), delayMin: $("delayMin"), settingsPreview: $("settingsPreview"),
+  saveSettingsBtn: $("saveSettingsBtn"), reloadBtn: $("reloadBtn"),
+  runsList: $("runsList"), actionsLink: $("actionsLink"), repoSub: $("repoSub"),
+  toast: $("toast")
+};
+
+let state = { sha: null, text: "", cron: null, delaySec: null, login: null, polling: false };
+
+/* ---------- utils ---------- */
+function b64e(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = ""; const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  return btoa(bin);
+}
+function b64d(b64){
+  const bin = atob(String(b64).replace(/\s/g, ""));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+function toast(msg, type){
+  el.toast.textContent = msg;
+  el.toast.className = "show " + (type || "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.toast.className = ""; }, 3200);
+}
+function pad(n){ return String(n).padStart(2, "0"); }
+function fmtBeijing(iso){
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const b = new Date(d.getTime() + (d.getTimezoneOffset() + 480) * 60000);
+  return `${b.getFullYear()}-${pad(b.getMonth()+1)}-${pad(b.getDate())} ${pad(b.getHours())}:${pad(b.getMinutes())}`;
+}
+function durText(startIso, endIso){
+  if (!startIso) return "";
+  const s = new Date(startIso).getTime();
+  const e = endIso ? new Date(endIso).getTime() : Date.now();
+  const sec = Math.max(0, Math.round((e - s) / 1000));
+  if (sec < 60) return sec + " 秒";
+  return Math.floor(sec / 60) + " 分 " + (sec % 60) + " 秒";
+}
+function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+
+/* ---------- GitHub API ---------- */
+async function api(path, opts){
+  opts = opts || {};
+  const res = await fetch(API + path, {
+    method: opts.method || "GET",
+    body: opts.body,
+    headers: Object.assign({
+      "Accept": "application/vnd.github+json",
+      "Authorization": "Bearer " + getToken(),
+      "X-GitHub-Api-Version": "2022-11-28"
+    }, opts.headers || {})
+  });
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message ? data.message + (res.status === 401 ? "（Token 无效或已过期）" : "") : (res.status + " " + res.statusText));
+  return data;
+}
+
+/* ---------- cron <-> 北京时间 ---------- */
+function beijingToCron(h, m){
+  const uh = ((h - 8) % 24 + 24) % 24;
+  return `${m} ${uh} * * *`;
+}
+function cronToBeijing(cron){
+  const p = String(cron).trim().split(/\s+/);
+  if (p.length < 2) return null;
+  const m = Number(p[0]), uh = Number(p[1]);
+  if (!Number.isInteger(m) || !Number.isInteger(uh)) return null;
+  return { h: (uh + 8) % 24, m };
+}
+function nextRunBeijing(cron){
+  const t = cronToBeijing(cron);
+  if (!t) return null;
+  const now = new Date();
+  const bNow = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+  const next = new Date(bNow); next.setHours(t.h, t.m, 0, 0);
+  if (next <= bNow) next.setDate(next.getDate() + 1);
+  return next;
+}
+function fmtDate(d){
+  const days = ["日","一","二","三","四","五","六"];
+  return `${d.getMonth()+1}月${d.getDate()}日 周${days[d.getDay()]} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/* ---------- 工作流文件读写 ---------- */
+async function loadWorkflow(){
+  const j = await api(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(WF_PATH)}?ref=${BRANCH}`);
+  state.sha = j.sha;
+  state.text = b64d(j.content);
+  const mc = state.text.match(/-\s*cron:\s*'([^']*)'/);
+  state.cron = mc ? mc[1] : null;
+  const md = state.text.match(/- name:\s*随机延迟\s*\n\s*run:\s*sleep \$\(\(RANDOM % (\d+)\)\)/);
+  state.delaySec = md ? Number(md[1]) : null;
+  renderOverview();
+  renderSettings();
+}
+function setCron(text, cron){
+  if (!/-\s*cron:\s*'[^']*'/.test(text)) throw new Error("未在 签到.yml 中找到 cron 配置");
+  return text.replace(/(-\s*cron:\s*)'[^']*'/, `$1'${cron}'`);
+}
+function setRandomDelay(text, enabled, seconds){
+  text = text.replace(/\n[ \t]*- name: 随机延迟\n[ \t]*run: sleep \$\(\(RANDOM % \d+\)\)/, "");
+  if (!enabled) return text;
+  const anchor = /\n([ \t]*)- name: 执行签到/;
+  if (!anchor.test(text)) throw new Error("未找到「执行签到」步骤，无法插入随机延迟");
+  return text.replace(anchor, (m, ind) =>
+    `\n${ind}- name: 随机延迟\n${ind}  run: sleep $((RANDOM % ${seconds}))\n${ind}- name: 执行签到`);
+}
+async function saveWorkflow(newText, message){
+  await api(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(WF_PATH)}`, {
+    method: "PUT",
+    body: JSON.stringify({ message, content: b64e(newText), sha: state.sha, branch: BRANCH })
+  });
+}
+
+/* ---------- 渲染 ---------- */
+function renderOverview(){
+  const t = state.cron ? cronToBeijing(state.cron) : null;
+  if (t){
+    el.ovTime.textContent = `${pad(t.h)}:${pad(t.m)}（北京时间）`;
+    const nx = nextRunBeijing(state.cron);
+    el.ovNext.textContent = nx ? fmtDate(nx) : "—";
+  } else {
+    el.ovTime.textContent = "解析失败";
+    el.ovNext.textContent = "—";
+  }
+  el.ovCron.textContent = state.cron || "—";
+  if (state.delaySec){
+    el.ovDelay.innerHTML = `开启 · 0 ~ ${Math.round(state.delaySec/60)} 分钟`;
+  } else {
+    el.ovDelay.textContent = "关闭";
+  }
+}
+function renderSettings(){
+  const t = state.cron ? cronToBeijing(state.cron) : { h: 0, m: 10 };
+  el.timeInput.value = `${pad(t.h)}:${pad(t.m)}`;
+  el.delayToggle.checked = !!state.delaySec;
+  el.delayBox.classList.toggle("hidden", !state.delaySec);
+  if (state.delaySec) el.delayMin.value = Math.round(state.delaySec / 60);
+  updatePreview();
+}
+function updatePreview(){
+  const v = el.timeInput.value || "00:10";
+  const [h, m] = v.split(":").map(Number);
+  let s = `每天 <b>${pad(h)}:${pad(m)}</b> 开始执行`;
+  if (el.delayToggle.checked){
+    const dm = Math.max(1, Number(el.delayMin.value) || 60);
+    s += `，再随机延迟 <b>0 ~ ${dm} 分钟</b>，实际打卡时间约 ${pad(h)}:${pad(m)} ~ ${pad((h + Math.floor((m + dm)/60)) % 24)}:${pad((m + dm) % 60)}`;
+  }
+  s += `。<br>cron（UTC）：<code>${beijingToCron(h, m)}</code>`;
+  el.settingsPreview.innerHTML = s;
+}
+
+const STATUS_TEXT = { queued:["排队中","warn"], in_progress:["运行中","run"], completed:["已完成",""] };
+const CONCL_TEXT = { success:["成功","ok"], failure:["失败","err"], cancelled:["已取消","warn"], skipped:["已跳过","warn"], startup_failure:["启动失败","err"], timed_out:["超时","err"] };
+function badge(status, conclusion){
+  if (status !== "completed"){
+    const s = STATUS_TEXT[status] || [status, ""];
+    return `<span class="badge ${s[1]}"><span class="dot pulse"></span>${s[0]}</span>`;
+  }
+  const c = CONCL_TEXT[conclusion] || [conclusion || "完成", ""];
+  return `<span class="badge ${c[1]}">${c[0]}</span>`;
+}
+function renderRuns(runs){
+  if (!runs || !runs.length){ el.runsList.innerHTML = '<div class="hint">暂无运行记录</div>'; return; }
+  el.runsList.innerHTML = runs.map(r => `
+    <a class="run" href="${r.html_url}" target="_blank" rel="noopener">
+      <span class="no">#${r.run_number}</span>
+      <span class="meta">
+        <span class="t1">${r.event === "workflow_dispatch" ? "手动触发" : r.event === "schedule" ? "定时触发" : r.event}</span>
+        <span class="t2">${fmtBeijing(r.run_started_at || r.created_at)} · 用时 ${durText(r.run_started_at, r.updated_at)}</span>
+      </span>
+      ${badge(r.status, r.conclusion)}
+    </a>`).join("");
+}
+async function loadRuns(){
+  const j = await api(`/repos/${OWNER}/${REPO}/actions/workflows/${encodeURIComponent(WF_NAME)}/runs?per_page=8`);
+  renderRuns(j.workflow_runs);
+  return j.workflow_runs;
+}
+
+/* ---------- 初始化 ---------- */
+async function init(){
+  if (!getToken()){ showAuth(); return; }
+  try {
+    const me = await api("/user");
+    state.login = me.login;
+    el.whoami.innerHTML = `<img class="avatar" src="${me.avatar_url}"> ${me.login}`;
+    await loadWorkflow();
+    el.authCard.classList.add("hidden");
+    el.panel.classList.remove("hidden");
+    el.logoutBtn.classList.remove("hidden");
+    el.actionsLink.href = `https://github.com/${OWNER}/${REPO}/actions`;
+    await loadRuns();
+  } catch (e){
+    toast(e.message || "连接失败", "err");
+    showAuth();
+  }
+}
+function showAuth(){
+  el.authCard.classList.remove("hidden");
+  el.panel.classList.add("hidden");
+  el.logoutBtn.classList.add("hidden");
+}
+
+/* ---------- 一键打卡 + 进度 ---------- */
+async function doCheckin(){
+  el.runBtn.disabled = true;
+  el.runBtn.innerHTML = '<span class="spinner"></span> 触发中…';
+  el.checkinBadge.innerHTML = badge("queued");
+  el.checkinBar.classList.add("indet");
+  el.checkinStep.textContent = "正在触发工作流…";
+  try {
+    const before = await loadRuns();
+    const beforeIds = new Set(before.map(r => r.id));
+    await api(`/repos/${OWNER}/${REPO}/actions/workflows/${encodeURIComponent(WF_NAME)}/dispatches`, {
+      method: "POST", body: JSON.stringify({ ref: BRANCH })
+    });
+    el.checkinStep.textContent = "已触发，等待 GitHub 排队…";
+    await pollRun(beforeIds);
+  } catch (e){
+    el.checkinBadge.innerHTML = badge("completed", "failure");
+    el.checkinBar.classList.remove("indet"); el.checkinBar.firstElementChild.style.width = "0%";
+    el.checkinStep.textContent = "触发失败：" + e.message;
+    toast("触发失败：" + e.message, "err");
+  } finally {
+    el.runBtn.disabled = false;
+    el.runBtn.textContent = "⚡ 一键打卡";
+  }
+}
+function pollRun(beforeIds){
+  return new Promise((resolve) => {
+    let runId = null, ticks = 0;
+    const timer = setInterval(async () => {
+      ticks++;
+      if (ticks > 400){ clearInterval(timer); resolve(); return; }
+      try {
+        if (!runId){
+          const j = await api(`/repos/${OWNER}/${REPO}/actions/workflows/${encodeURIComponent(WF_NAME)}/runs?per_page=5`);
+          const fresh = j.workflow_runs.find(r => !beforeIds.has(r.id));
+          if (fresh) runId = fresh.id;
+        } else {
+          const run = await api(`/repos/${OWNER}/${REPO}/actions/runs/${runId}`);
+          const jobs = await api(`/repos/${OWNER}/${REPO}/actions/runs/${runId}/jobs`);
+          const steps = (jobs.jobs || []).flatMap(j => j.steps || []);
+          const done = steps.filter(s => s.status === "completed").length;
+          const cur = steps.find(s => s.status === "in_progress");
+          if (steps.length){
+            el.checkinBar.classList.remove("indet");
+            el.checkinBar.firstElementChild.style.width = Math.round(done / steps.length * 100) + "%";
+          }
+          el.checkinBadge.innerHTML = badge(run.status, run.conclusion);
+          if (run.status === "completed"){
+            el.checkinBar.classList.remove("indet");
+            el.checkinBar.firstElementChild.style.width = "100%";
+            const c = CONCL_TEXT[run.conclusion] || [run.conclusion, ""];
+            el.checkinStep.textContent = `运行结束：${c[0]}，用时 ${durText(run.run_started_at, run.updated_at)}`;
+            clearInterval(timer); await loadRuns(); resolve(); return;
+          }
+          el.checkinStep.textContent = cur ? `当前步骤：${cur.name}` : `状态：${(STATUS_TEXT[run.status]||[run.status])[0]}（${done}/${steps.length} 步）`;
+        }
+        if (ticks % 8 === 0) await loadRuns();
+      } catch (e){ /* 忽略单次轮询错误 */ }
+    }, 3000);
+  });
+}
+
+/* ---------- 事件绑定 ---------- */
+el.saveTokenBtn.addEventListener("click", async () => {
+  const t = el.tokenInput.value.trim();
+  if (!t){ toast("请输入 Token", "err"); return; }
+  localStorage.setItem(TOKEN_KEY, t);
+  el.saveTokenBtn.disabled = true; el.saveTokenBtn.innerHTML = '<span class="spinner"></span> 连接中…';
+  await init();
+  el.saveTokenBtn.disabled = false; el.saveTokenBtn.textContent = "连接";
+  if (state.login) toast("已连接：" + state.login, "ok");
+});
+el.logoutBtn.addEventListener("click", () => {
+  localStorage.removeItem(TOKEN_KEY);
+  state = { sha:null, text:"", cron:null, delaySec:null, login:null, polling:false };
+  el.tokenInput.value = "";
+  showAuth();
+  toast("已退出", "ok");
+});
+el.runBtn.addEventListener("click", doCheckin);
+el.reloadBtn.addEventListener("click", async () => {
+  try { await loadWorkflow(); await loadRuns(); toast("已刷新", "ok"); }
+  catch (e){ toast(e.message, "err"); }
+});
+el.saveSettingsBtn.addEventListener("click", async () => {
+  const v = el.timeInput.value;
+  if (!v){ toast("请选择时间", "err"); return; }
+  const [h, m] = v.split(":").map(Number);
+  const cron = beijingToCron(h, m);
+  const delayOn = el.delayToggle.checked;
+  const delaySec = delayOn ? Math.max(1, Number(el.delayMin.value) || 60) * 60 : 0;
+  el.saveSettingsBtn.disabled = true; el.saveSettingsBtn.innerHTML = '<span class="spinner"></span> 保存中…';
+  try {
+    await loadWorkflow(); // 取最新 sha，避免冲突
+    let text = setCron(state.text, cron);
+    text = setRandomDelay(text, delayOn, delaySec);
+    await saveWorkflow(text, `更新打卡时间：北京时间 ${pad(h)}:${pad(m)}${delayOn ? `（随机 0~${Math.round(delaySec/60)} 分钟）` : ""}`);
+    await loadWorkflow();
+    toast("设置已保存", "ok");
+  } catch (e){
+    toast("保存失败：" + e.message, "err");
+  } finally {
+    el.saveSettingsBtn.disabled = false; el.saveSettingsBtn.textContent = "保存设置";
+  }
+});
+el.delayToggle.addEventListener("change", () => {
+  el.delayBox.classList.toggle("hidden", !el.delayToggle.checked);
+  updatePreview();
+});
+el.timeInput.addEventListener("input", updatePreview);
+el.delayMin.addEventListener("input", updatePreview);
+
+init();
+</script>
+</body>
+</html>
