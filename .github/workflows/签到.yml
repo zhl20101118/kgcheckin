@@ -31,6 +31,7 @@ jobs:
         run: npm run install
         if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
       - name: 随机延迟
+        if: ${{ github.event_name == 'schedule' }}
         run: sleep $((RANDOM % 3600))
       - name: 执行签到
         run: npm run main
