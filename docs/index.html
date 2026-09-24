@@ -129,7 +129,7 @@
         <span id="checkinBadge"></span>
       </div>
       <div class="bar" id="checkinBar"><i></i></div>
-      <div class="hint" id="checkinStep">点下面按钮即可立即运行一次（不用等定时）。</div>
+      <div class="hint" id="checkinStep">点下面按钮即可立即运行一次（手动触发会跳过随机延迟）。</div>
       <div class="btnrow">
         <button class="btn" id="runBtn">⚡ 一键打卡</button>
       </div>
@@ -286,12 +286,12 @@ function setCron(text, cron){
   return text.replace(/(-\s*cron:\s*)'[^']*'/, `$1'${cron}'`);
 }
 function setRandomDelay(text, enabled, seconds){
-  text = text.replace(/\n[ \t]*- name: 随机延迟\n[ \t]*run: sleep \$\(\(RANDOM % \d+\)\)/, "");
+  text = text.replace(/\n[ \t]*- name: 随机延迟\n(?:[ \t]*if:[^\n]*\n)?[ \t]*run: sleep \$\(\(RANDOM % \d+\)\)/, "");
   if (!enabled) return text;
   const anchor = /\n([ \t]*)- name: 执行签到/;
   if (!anchor.test(text)) throw new Error("未找到「执行签到」步骤，无法插入随机延迟");
   return text.replace(anchor, (m, ind) =>
-    `\n${ind}- name: 随机延迟\n${ind}  run: sleep $((RANDOM % ${seconds}))\n${ind}- name: 执行签到`);
+    `\n${ind}- name: 随机延迟\n${ind}  if: \${{ github.event_name == 'schedule' }}\n${ind}  run: sleep $((RANDOM % ${seconds}))\n${ind}- name: 执行签到`);
 }
 async function saveWorkflow(newText, message){
   await api(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(WF_PATH)}`, {
@@ -313,7 +313,7 @@ function renderOverview(){
   }
   el.ovCron.textContent = state.cron || "—";
   if (state.delaySec){
-    el.ovDelay.innerHTML = `开启 · 0 ~ ${Math.round(state.delaySec/60)} 分钟`;
+    el.ovDelay.innerHTML = `开启 · 0 ~ ${Math.round(state.delaySec/60)} 分钟（仅定时任务）`;
   } else {
     el.ovDelay.textContent = "关闭";
   }
@@ -332,7 +332,7 @@ function updatePreview(){
   let s = `每天 <b>${pad(h)}:${pad(m)}</b> 开始执行`;
   if (el.delayToggle.checked){
     const dm = Math.max(1, Number(el.delayMin.value) || 60);
-    s += `，再随机延迟 <b>0 ~ ${dm} 分钟</b>，实际打卡时间约 ${pad(h)}:${pad(m)} ~ ${pad((h + Math.floor((m + dm)/60)) % 24)}:${pad((m + dm) % 60)}`;
+    s += `，再随机延迟 <b>0 ~ ${dm} 分钟</b>（仅定时任务，手动打卡不延迟），实际打卡时间约 ${pad(h)}:${pad(m)} ~ ${pad((h + Math.floor((m + dm)/60)) % 24)}:${pad((m + dm) % 60)}`;
   }
   s += `。<br>cron（UTC）：<code>${beijingToCron(h, m)}</code>`;
   el.settingsPreview.innerHTML = s;
