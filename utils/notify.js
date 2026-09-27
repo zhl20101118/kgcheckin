@@ -26,8 +26,9 @@ import { printGreen, printRed, printYellow } from './colorOut.js'
 /* ------------------------------------------------------------------ */
 
 // 1. 企业微信机器人
+// 与钉钉同理：HTTP 200 也可能业务失败，需检查 body.errcode
 async function sendWeCom(title, content, key) {
-  const url = `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${key}`
+  const url = key.startsWith('http') ? key : `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${key}`
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -36,7 +37,12 @@ async function sendWeCom(title, content, key) {
       text: { content: `${title}\n\n${content}` },
     }),
   })
-  return resp.ok
+  const data = await resp.json().catch(() => null)
+  if (!data || data.errcode !== 0) {
+    printRed(`企业微信发送失败: ${data?.errmsg || `HTTP ${resp.status}`}`)
+    return false
+  }
+  return true
 }
 
 // 2. 钉钉机器人
@@ -71,17 +77,35 @@ async function sendDingTalk(title, content, key, secret) {
 }
 
 // 3. 飞书机器人
-async function sendFeishu(title, content, key) {
-  const url = `https://open.feishu.cn/open-apis/bot/v2/hook/${key}`
+// key 支持两种填法：webhook 完整地址，或仅 hook 末尾的 key。
+// 若机器人开启了“签名校验”，需通过 secret（FEISHU_SECRET）加签：
+// 飞书加签算法：以 `${timestamp}\n${secret}` 为 HMAC-SHA256 的密钥，对空串签名后 base64。
+// 注意：飞书/钉钉类接口 HTTP 200 也可能业务失败，必须检查响应 body 内的 code。
+async function sendFeishu(title, content, key, secret) {
+  const url = key.startsWith('http') ? key : `https://open.feishu.cn/open-apis/bot/v2/hook/${key}`
+  const body = {
+    msg_type: 'text',
+    content: { text: `${title}\n\n${content}` },
+  }
+  if (secret) {
+    const timestamp = Math.floor(Date.now() / 1000)
+    const stringToSign = `${timestamp}\n${secret}`
+    const sign = crypto.createHmac('sha256', stringToSign).update('').digest('base64')
+    body.timestamp = String(timestamp)
+    body.sign = sign
+  }
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      msg_type: 'text',
-      content: { text: `${title}\n\n${content}` },
-    }),
+    body: JSON.stringify(body),
   })
-  return resp.ok
+  const data = await resp.json().catch(() => null)
+  const bizCode = data?.code ?? data?.StatusCode
+  if (bizCode !== 0) {
+    printRed(`飞书发送失败: ${data?.msg || data?.StatusMessage || `HTTP ${resp.status}`}`)
+    return false
+  }
+  return true
 }
 
 // 4. 云湖机器人
@@ -352,7 +376,7 @@ async function sendNotify(title, content) {
     channels.push({ name: '钉钉', fn: () => sendDingTalk(title, content, process.env.DINGTALK_BOT_KEY, process.env.DINGTALK_SECRET) })
   }
   if (process.env.FEISHU_BOT_KEY) {
-    channels.push({ name: '飞书', fn: () => sendFeishu(title, content, process.env.FEISHU_BOT_KEY) })
+    channels.push({ name: '飞书', fn: () => sendFeishu(title, content, process.env.FEISHU_BOT_KEY, process.env.FEISHU_SECRET) })
   }
   if (process.env.YUNHU_BOT_KEY) {
     channels.push({ name: '云湖', fn: () => sendYunhu(title, content, process.env.YUNHU_BOT_KEY) })

@@ -7,7 +7,9 @@
     "apiService": "cd api && npm run start",
     "phoneLogin": "node phoneLogin.js",
     "sent": "node sent.js",
-    "qrcodeLogin": "node qrcodeLogin.js"
+    "qrcodeLogin": "node qrcodeLogin.js",
+    "account": "node account.js",
+    "decryptQr": "node decryptQr.js"
   },
   "dependencies": {
     "qrcode": "^1.5.3"

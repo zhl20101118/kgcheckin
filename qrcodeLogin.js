@@ -4,6 +4,8 @@ import { close_api, delay, send, startService, waitForApi } from "./utils/utils.
 import { printGreen, printMagenta, printRed, printYellow } from "./utils/colorOut.js";
 import { summarizeResponse } from "./utils/safeLog.js";
 import { upsertUser, saveUserinfo } from "./utils/userinfo.js";
+import { encryptDirToBundle } from "./utils/qrCrypto.js";
+import { ensureDfid } from "./utils/dfid.js";
 
 const require = createRequire(import.meta.url)
 // 优先从常规 node_modules 解析（本地/全局安装场景），失败再回退到 Actions 构建产物中的 api/node_modules 硬编码路径
@@ -18,6 +20,8 @@ try {
 const SUMMARY_FILE = process.env.GITHUB_STEP_SUMMARY || ''
 const QR_DIR = './qr'
 const KEYS_FILE = './qrkeys.json'
+// 加密后的二维码打包产物（上传 artifact 的唯一产物，明文 PNG/HTML 不上传）
+const ENC_FILE = './qr_bundle.enc'
 
 /**
  * 向 GitHub Step Summary 追加 Markdown 内容。
@@ -40,7 +44,7 @@ function appendSummary(markdown) {
 /**
  * 生成并展示单个二维码 — 展示渠道：
  *
- *   ① PNG 文件（qr/qr-N.png）：Release 直链 + HTML 内嵌双用途
+ *   ① PNG 文件（qr/qr-N.png）：随后加密打包，不直接公开
  *   ② 自包含 HTML 页面（qr/login.html）：浏览器打开即见大图，手机直接扫
  *   ③ base64 data URI：HTML <img> 共用
  *
@@ -52,17 +56,14 @@ function appendSummary(markdown) {
 async function buildQr(url, index, total) {
   const header = total > 1 ? `（第 ${index}/${total} 个账号）` : ''
 
-  // ── 1) PNG 文件（Release 直链 + HTML 内嵌双用途）──
+  // ── 1) PNG 文件（随后加密打包，不直接公开）──
   await QRCode.toFile(`${QR_DIR}/qr-${index}.png`, url, { width: 320, margin: 2 })
 
   // ── 2) base64 data URI（HTML <img> 共用）──
   const dataUrl = await QRCode.toDataURL(url, { width: 320, margin: 2 })
 
-  // ── 3) 日志输出：指引去直链步骤 ──
+  // ── 3) 日志输出（不输出任何可被公开的扫码入口，二维码仅经加密 artifact 下发）──
   printMagenta(`\n═══ 第 ${index}/${total} 个二维码已生成 ═══`)
-  console.log('')
-  console.log('  🔗 请查看下一步「发布二维码图片直链」输出的链接，浏览器打开即可直接扫码')
-  console.log('')
 
   return { dataUrl, url, header, index }
 }
@@ -138,7 +139,7 @@ function resolveNumber() {
 
 /**
  * 模式一：生成二维码（PNG + HTML），随后立即结束 step。
- * step 结束后 Release 直链即可使用，用户浏览器打开直接扫码。
+ * step 结束后二维码产物已加密为 qr_bundle.enc，等待用户下载解密查看。
  */
 async function genMode() {
   const api = startService()
@@ -151,7 +152,7 @@ async function genMode() {
   const number = resolveNumber()
   const keys = []
 
-  // 清理上次运行残留的 QR 文件，避免旧二维码混入本次 Release
+  // 清理上次运行残留的 QR 文件，避免旧二维码混入本次加密包
   fs.rmSync(QR_DIR, { recursive: true, force: true })
   fs.mkdirSync(QR_DIR, { recursive: true })
 
@@ -197,10 +198,25 @@ async function genMode() {
 
     fs.writeFileSync(KEYS_FILE, JSON.stringify({ number, keys }))
     printMagenta(`\n✅ 已生成 ${number} 个二维码。`)
-    printMagenta(`🔗 请查看下一步「发布二维码图片直链」输出的可点击链接，浏览器打开即可直接扫码！`)
 
-    // 写入 Summary 提示
-    appendSummary(`## 🎵 酷狗音乐扫码登录\n\n✅ 已生成 ${number} 个二维码，请查看下一步「发布二维码图片直链」输出的链接进行扫码。\n\n⏳ 二维码有效期约 2 分钟，请尽快扫描。`)
+    // 安全：二维码即登录凭证，绝不放进任何公开可见的 Release / 明文 artifact / Summary。
+    // 用预先配置的 Secret QR_PASS 派生密钥，将二维码产物加密为单个 qr_bundle.enc，
+    // 仅持有 QR_PASS 者能解密查看；明文产物随即从 runner 删除，不落任何公开产物。
+    const qrPass = process.env.QR_PASS
+    if (!qrPass) {
+      printRed('未配置 Secret QR_PASS，无法加密二维码产物，已中止以保护账号安全。')
+      printRed('请到仓库 Settings → Secrets and variables → Actions 添加 QR_PASS 后重试。')
+      throw new Error('缺少 QR_PASS')
+    }
+    fs.rmSync(ENC_FILE, { force: true })
+    const packed = encryptDirToBundle(QR_DIR, ENC_FILE, qrPass)
+    printGreen(`🔒 已加密打包 ${packed} 个文件 → ${ENC_FILE}`)
+    // 删除明文二维码目录，避免被后续步骤误传
+    fs.rmSync(QR_DIR, { recursive: true, force: true })
+    printMagenta('请下载 Actions 产物「qr-bundle」，本地用 node decryptQr.js + 你的 QR_PASS 解密查看二维码')
+
+    // 写入 Summary 提示（不含二维码内容、不含口令）
+    appendSummary(`## 🎵 酷狗音乐扫码登录\n\n✅ 已生成 ${number} 个加密二维码（artifact「qr-bundle」）。\n\n🔒 为防账号被盗，二维码已用你设置的 \`QR_PASS\` 加密。请下载该 artifact，运行 \`node decryptQr.js qr_bundle.enc\` 并输入你的 QR_PASS 解密查看。\n\n⏳ 二维码有效期约 2 分钟，请尽快完成扫码。`)
   } catch (e) {
     const msg = e && e.message ? e.message : String(e)
     console.error(`::error::二维码生成失败：${msg}`)
@@ -261,11 +277,15 @@ async function waitMode() {
           case 2:
             // 二维码未确认，请点击确认登录
             break
-          case 4:
+          case 4: {
             printGreen("登录成功！")
-            upsertUser(userinfo, { userid: res.data.userid, token: res.data.token }, APPEND_USER == "是")
+            const loginUser = { userid: res.data.userid, token: res.data.token }
+            // 获取设备指纹 dfid 一并保存（后续签到/领取等接口需要）
+            await ensureDfid(loginUser)
+            upsertUser(userinfo, loginUser, APPEND_USER == "是")
             loggedIn = true
             break
+          }
           default:
             printRed("请求出错")
             console.dir(summarizeResponse(res), { depth: null })

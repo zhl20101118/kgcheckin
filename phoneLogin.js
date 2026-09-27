@@ -1,6 +1,7 @@
 import { printGreen, printRed, printYellow } from "./utils/colorOut.js";
 import { sanitizeForLog, summarizeResponse } from "./utils/safeLog.js";
 import { upsertUser, saveUserinfo } from "./utils/userinfo.js";
+import { ensureDfid } from "./utils/dfid.js";
 import { close_api, delay, send, startService, waitForApi } from "./utils/utils.js";
 
 async function login() {
@@ -29,7 +30,10 @@ async function login() {
     const result = await send(`/login/cellphone?mobile=${phone}&code=${code}`, "GET", {})
     if (result.status === 1) {
       printGreen("登录成功！")
-      upsertUser(userinfo, { userid: result.data.userid, token: result.data.token }, APPEND_USER == "是")
+      const loginUser = { userid: result.data.userid, token: result.data.token }
+      // 获取设备指纹 dfid 一并保存（后续签到/领取等接口需要）
+      await ensureDfid(loginUser)
+      upsertUser(userinfo, loginUser, APPEND_USER == "是")
       saveUserinfo(userinfo)
     } else if (result.error_code === 34175) {
       throw new Error("暂不支持多账号绑定手机登录")

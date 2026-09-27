@@ -125,10 +125,4 @@ function summarizeResponse(response) {
   return Object.keys(summary).length > 0 ? summary : safe;
 }
 
-function shouldPrintSensitiveValue() {
-  const raw = String(process.env.ALLOW_PRINT_USERINFO || "").trim().toLowerCase()
-  // 中文“是”直接匹配，英文值需要小写后匹配
-  return raw === "是" || ["true", "1", "yes"].includes(raw)
-}
-
-export { maskDisplayName, maskIdentifier, sanitizeForLog, shouldPrintSensitiveValue, summarizeResponse };
+export { maskDisplayName, maskIdentifier, sanitizeForLog, summarizeResponse };
