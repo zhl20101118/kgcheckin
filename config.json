@@ -1,0 +1,16 @@
+{
+  "_说明": "本文件由网页控制台读写；GitHub Actions 每次签到都会读取它，改完下次运行即生效。",
+  "tasks": {
+    "listen": true,
+    "ad": true,
+    "dayVip": true,
+    "upgrade": true
+  },
+  "ad": {
+    "maxTimes": 8,
+    "intervalMinSec": 25,
+    "intervalMaxSec": 35
+  },
+  "futureDays": 5,
+  "updatedAt": "2026-09-27T05:53:19.877Z"
+}
