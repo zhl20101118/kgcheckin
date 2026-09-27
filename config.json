@@ -4,7 +4,7 @@
     "listen": true,
     "ad": false,
     "dayVip": true,
-    "upgrade": true
+    "upgrade": false
   },
   "ad": {
     "maxTimes": 8,
@@ -12,5 +12,5 @@
     "intervalMaxSec": 35
   },
   "futureDays": 0,
-  "updatedAt": "2026-09-27T05:58:58.870Z"
+  "updatedAt": "2026-09-27T05:59:02.725Z"
 }
