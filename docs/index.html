@@ -282,8 +282,18 @@ async function loadWorkflow(){
   renderSettings();
 }
 function setCron(text, cron){
-  if (!/-\s*cron:\s*'[^']*'/.test(text)) throw new Error("未在 签到.yml 中找到 cron 配置");
-  return text.replace(/(-\s*cron:\s*)'[^']*'/, `$1'${cron}'`);
+  const blockRe = /(?:[ \t]*-[ \t]*cron:[ \t]*'[^']*'[ \t\r]*(?:\n|$))+/;
+  if (!blockRe.test(text)) throw new Error("未在 签到.yml 中找到 cron 配置");
+  const firstLine = text.match(/[ \t]*-[ \t]*cron:/)[0];
+  const ind = firstLine.slice(0, firstLine.indexOf("-"));
+  const parts = cron.trim().split(/\s+/);
+  const base = Number(parts[0]) + Number(parts[1]) * 60;
+  // 生成 3 条错开 10 分钟的多重 cron，防止单次 schedule 漏跑（签到幂等，重复执行自动跳过）
+  const crons = [0, 10, 20].map(add => {
+    const t = base + add;
+    return `${ind}- cron: '${t % 60} ${Math.floor(t / 60) % 24} * * *'`;
+  });
+  return text.replace(blockRe, crons.join("\n") + "\n");
 }
 function setRandomDelay(text, enabled, seconds){
   text = text.replace(/\n[ \t]*- name: 随机延迟\n(?:[ \t]*if:[^\n]*\n)?[ \t]*run: sleep \$\(\(RANDOM % \d+\)\)/, "");
@@ -334,7 +344,7 @@ function updatePreview(){
     const dm = Math.max(1, Number(el.delayMin.value) || 60);
     s += `，再随机延迟 <b>0 ~ ${dm} 分钟</b>（仅定时任务，手动打卡不延迟），实际打卡时间约 ${pad(h)}:${pad(m)} ~ ${pad((h + Math.floor((m + dm)/60)) % 24)}:${pad((m + dm) % 60)}`;
   }
-  s += `。<br>cron（UTC）：<code>${beijingToCron(h, m)}</code>`;
+  s += `。<br>自动生成 3 条错开 10 分钟的多重 cron（防漏跑，重复执行自动跳过），首条（UTC）：<code>${beijingToCron(h, m)}</code>`;
   el.settingsPreview.innerHTML = s;
 }
 
